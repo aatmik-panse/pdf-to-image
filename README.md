@@ -1,25 +1,35 @@
-# PDF to Image Converter
+# PDF to Image Converter API
 
-A fast and efficient Node.js application built with Bun that converts PDF files to high-quality JPG images. Available as both a CLI tool and a web service.
+A fast and efficient REST API built with Bun that converts PDF files to high-quality JPG images.
 
 ## 🌟 Features
 
 - 🚀 **Fast conversion** using Bun runtime
 - 📄 **Convert specific pages** or page ranges
 - 🎨 **Customizable DPI** and JPG quality
-- 💻 **Beautiful web interface** with drag-and-drop
-- 🔧 **CLI tool** for automation
+- **CLI tool** for automation
 - 📁 **Organized output** directory structure
 - ✅ **Input validation** and error handling
 - 🔒 **Secure processing** with automatic cleanup
-- 📱 **Responsive design** for mobile devices
-- 🐳 **Docker ready** for easy deployment
+- � **Docker ready** for easy deployment
+- � **REST API** for integration with any frontend
 
 ## 🚀 Quick Start
 
-### Web Interface (Production)
+### API Usage
 
-Visit the deployed application at: [Your Render URL]
+```bash
+# Convert PDF via API
+curl -X POST -F "pdf=@document.pdf" http://localhost:3000/api/convert
+
+# Convert with custom settings
+curl -X POST \
+  -F "pdf=@document.pdf" \
+  -F "dpi=300" \
+  -F "quality=90" \
+  -F "pages=1-5" \
+  http://localhost:3000/api/convert
+```
 
 ### CLI Usage
 
@@ -29,13 +39,6 @@ bun run cli sample.pdf
 
 # Convert with custom settings
 bun run cli sample.pdf -o ./images -d 600 -q 95 -p 1-5
-```
-
-### Web Service (API)
-
-```bash
-# Convert PDF via API
-curl -X POST -F "pdf=@document.pdf" http://localhost:3000/api/convert
 ```
 
 ## 📦 Installation & Setup
@@ -67,14 +70,14 @@ For detailed deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md)
 3. **Run the application**:
 
    ```bash
-   # Web service (with UI)
+   # API service
    bun run dev
 
    # CLI tool
    bun run cli --help
    ```
 
-> **Note**: This application uses `pdf2pic` which requires ImageMagick and Ghostscript. For local development on macOS, you may need to install these:
+> **Note**: This is now an API-only service. The application uses `pdf2pic` which requires ImageMagick and Ghostscript. For local development on macOS, you may need to install these:
 >
 > ```bash
 > brew install imagemagick ghostscript
@@ -84,25 +87,19 @@ For detailed deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md)
 
 ## 🖥️ Usage
 
-### Web Interface
+### API Service
 
-1. **Start the web service**:
+1. **Start the API service**:
 
    ```bash
    bun start
    ```
 
-2. **Open your browser** and go to `http://localhost:3000`
+2. **API Documentation**: Open `http://localhost:3000` for API documentation
 
-3. **Upload a PDF file** using the drag-and-drop interface or file picker
+3. **Health Check**: `GET http://localhost:3000/health`
 
-4. **Configure settings**:
-
-   - DPI: 150 (fast), 300 (standard), 600 (high quality)
-   - Quality: 70-95% JPG compression
-   - Pages: "all", "1-5", "1,3,5", etc.
-
-5. **Download converted images** individually or all at once
+4. **Convert PDF**: `POST http://localhost:3000/api/convert`
 
 ### CLI Tool
 
@@ -171,12 +168,11 @@ pdf-to-image/
 │   ├── converter.ts    # Main conversion logic
 │   ├── utils.ts        # Utility functions
 │   └── types.d.ts      # Type definitions
-├── public/
-│   └── index.html      # Web interface
-├── uploads/            # Temporary file storage
-├── output/             # Generated images
+├── data/               # Persistent storage (mounted disk)
+│   ├── uploads/        # Temporary file storage
+│   └── output/         # Generated images
 ├── index.ts            # CLI interface
-├── server.ts           # Web server
+├── server.ts           # API server
 ├── Dockerfile          # Docker configuration
 ├── render.yaml         # Render deployment config
 ├── docker-compose.yml  # Local development
@@ -213,26 +209,6 @@ This creates a `dist` folder with the compiled output.
 
 ## 🎯 Examples
 
-### Web Interface Examples
-
-1. **Basic Conversion**: Upload a PDF and convert all pages at 300 DPI
-2. **High Quality**: Set DPI to 600 and quality to 95% for print-ready images
-3. **Specific Pages**: Convert only pages 1-5 from a large document
-4. **Batch Processing**: Convert multiple PDFs using the API
-
-### CLI Examples
-
-```bash
-# Convert a research paper
-bun run cli research-paper.pdf -o ./research-images -d 300 -q 90
-
-# Convert presentation slides
-bun run cli presentation.pdf -o ./slides -d 150 -q 85 -p 1-20
-
-# Convert specific pages
-bun run cli document.pdf -o ./selected-pages -p 1,5,10-15
-```
-
 ### API Examples
 
 ```bash
@@ -246,6 +222,22 @@ curl -X POST \
   -F "quality=95" \
   -F "pages=1-10" \
   http://localhost:3000/api/convert
+
+# Health check
+curl http://localhost:3000/health
+```
+
+### CLI Examples
+
+```bash
+# Convert a research paper
+bun run cli research-paper.pdf -o ./research-images -d 300 -q 90
+
+# Convert presentation slides
+bun run cli presentation.pdf -o ./slides -d 150 -q 85 -p 1-20
+
+# Convert specific pages
+bun run cli document.pdf -o ./selected-pages -p 1,5,10-15
 ```
 
 ## 🚀 Deployment

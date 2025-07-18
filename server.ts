@@ -86,8 +86,7 @@ const upload = multer({
   },
 });
 
-// Serve static files
-app.use(express.static(path.join(__dirname, "public")));
+// Static files - API only, no frontend
 app.use("/output", express.static(path.join(__dirname, "data", "output")));
 
 // Health check endpoint
@@ -164,9 +163,33 @@ app.post("/api/convert", upload.single("pdf"), async (req, res) => {
   }
 });
 
-// Serve the main HTML page
+// API root endpoint
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  res.json({
+    name: "PDF to Image Converter API",
+    version: "1.0.0",
+    description: "Convert PDF files to JPG images via REST API",
+    endpoints: {
+      health: "GET /health",
+      convert: "POST /api/convert",
+      images: "GET /output/{folder}/{filename}",
+    },
+    usage: {
+      convert: {
+        method: "POST",
+        url: "/api/convert",
+        contentType: "multipart/form-data",
+        fields: {
+          pdf: "PDF file (required)",
+          dpi: "DPI resolution (optional, default: 300)",
+          quality: "JPG quality 1-100 (optional, default: 90)",
+          pages: "Page range (optional, default: 'all')",
+        },
+        example:
+          "curl -X POST -F 'pdf=@document.pdf' -F 'dpi=300' -F 'quality=90' /api/convert",
+      },
+    },
+  });
 });
 
 // Error handling middleware
@@ -227,7 +250,8 @@ setInterval(async () => {
 }, 60 * 60 * 1000); // Run every hour
 
 app.listen(PORT, () => {
-  console.log(`🚀 PDF to Image Server running on port ${PORT}`);
+  console.log(`🚀 PDF to Image API Server running on port ${PORT}`);
   console.log(`📁 Environment: ${process.env.NODE_ENV || "development"}`);
-  console.log(`🌐 Access the application at: http://localhost:${PORT}`);
+  console.log(`🌐 API Documentation: http://localhost:${PORT}`);
+  console.log(`🔗 Health Check: http://localhost:${PORT}/health`);
 });

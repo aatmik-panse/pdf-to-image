@@ -9,6 +9,9 @@ output/
 images/
 uploads/
 
+# frontend (removed)
+public/
+
 # code coverage
 coverage
 *.lcov

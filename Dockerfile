@@ -16,8 +16,9 @@ COPY package.json bun.lock ./
 # Install dependencies
 RUN bun install --frozen-lockfile
 
-# Copy source code
-COPY . .
+# Copy source code (excluding public directory)
+COPY src/ ./src/
+COPY index.ts server.ts package.json tsconfig.json ./
 
 # Create directories for persistent data storage
 RUN mkdir -p data/uploads data/output
