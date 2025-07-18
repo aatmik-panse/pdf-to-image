@@ -1,9 +1,10 @@
 # Use the official Bun image
 FROM oven/bun:1.2.11
 
-# Install system dependencies for pdf2pic (ImageMagick and Ghostscript)
+# Install system dependencies for pdf2pic (ImageMagick, GraphicsMagick and Ghostscript)
 RUN apt-get update && apt-get install -y \
     imagemagick \
+    graphicsmagick \
     ghostscript \
     && rm -rf /var/lib/apt/lists/*
 
