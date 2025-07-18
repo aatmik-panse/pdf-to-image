@@ -19,8 +19,8 @@ RUN bun install --frozen-lockfile
 # Copy source code
 COPY . .
 
-# Create directories for uploads and output
-RUN mkdir -p uploads output
+# Create directories for persistent data storage
+RUN mkdir -p data/uploads data/output
 
 # Expose port
 EXPOSE 3000

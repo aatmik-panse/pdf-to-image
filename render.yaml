@@ -17,7 +17,7 @@ services:
         value: "*"
     disk:
       name: pdf-converter-disk
-      mountPath: /app/uploads
+      mountPath: /app/data
       sizeGB: 10
     healthCheckPath: /health
     numInstances: 1

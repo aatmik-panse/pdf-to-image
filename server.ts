@@ -61,7 +61,8 @@ app.use(express.urlencoded({ extended: true, limit: "100mb" }));
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
-    const uploadDir = path.join(__dirname, "uploads");
+    // Use mounted disk path for persistent storage
+    const uploadDir = path.join(__dirname, "data", "uploads");
     await fs.mkdir(uploadDir, { recursive: true });
     cb(null, uploadDir);
   },
@@ -87,7 +88,7 @@ const upload = multer({
 
 // Serve static files
 app.use(express.static(path.join(__dirname, "public")));
-app.use("/output", express.static(path.join(__dirname, "output")));
+app.use("/output", express.static(path.join(__dirname, "data", "output")));
 
 // Health check endpoint
 app.get("/health", (req, res) => {
@@ -104,6 +105,7 @@ app.post("/api/convert", upload.single("pdf"), async (req, res) => {
     const { dpi = "300", quality = "90", pages = "all" } = req.body;
     const outputDir = path.join(
       __dirname,
+      "data",
       "output",
       `conversion-${Date.now()}`
     );
@@ -198,8 +200,8 @@ app.use((req, res) => {
 // Cleanup old files periodically (every hour)
 setInterval(async () => {
   try {
-    const outputDir = path.join(__dirname, "output");
-    const uploadsDir = path.join(__dirname, "uploads");
+    const outputDir = path.join(__dirname, "data", "output");
+    const uploadsDir = path.join(__dirname, "data", "uploads");
 
     // Clean up output directories older than 1 hour
     const now = Date.now();
