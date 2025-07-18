@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF to Image Converter</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      .hero-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 4rem 0;
+      }
+
+      .upload-area {
+        border: 2px dashed #dee2e6;
+        border-radius: 10px;
+        padding: 3rem;
+        text-align: center;
+        transition: all 0.3s ease;
+        cursor: pointer;
+      }
+
+      .upload-area:hover {
+        border-color: #667eea;
+        background-color: #f8f9fa;
+      }
+
+      .upload-area.dragover {
+        border-color: #667eea;
+        background-color: #e7f3ff;
+      }
+
+      .conversion-progress {
+        display: none;
+      }
+
+      .results-section {
+        display: none;
+      }
+
+      .image-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-top: 2rem;
+      }
+
+      .image-card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 1rem;
+        text-align: center;
+        transition: transform 0.2s ease;
+      }
+
+      .image-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .image-card img {
+        max-width: 100%;
+        height: 150px;
+        object-fit: cover;
+        border-radius: 4px;
+      }
+
+      .settings-panel {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+      }
+
+      .feature-card {
+        background: white;
+        border-radius: 10px;
+        padding: 2rem;
+        text-align: center;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s ease;
+      }
+
+      .feature-card:hover {
+        transform: translateY(-5px);
+      }
+
+      .feature-icon {
+        font-size: 3rem;
+        color: #667eea;
+        margin-bottom: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Hero Section -->
+    <div class="hero-section">
+      <div class="container">
+        <div class="row align-items-center">
+          <div class="col-lg-6">
+            <h1 class="display-4 fw-bold mb-4">PDF to Image Converter</h1>
+            <p class="lead mb-4">
+              Convert your PDF documents to high-quality JPG images with
+              customizable settings. Fast, secure, and easy to use.
+            </p>
+            <div class="d-flex gap-3">
+              <span class="badge bg-light text-dark px-3 py-2">
+                <i class="fas fa-bolt"></i> Fast Conversion
+              </span>
+              <span class="badge bg-light text-dark px-3 py-2">
+                <i class="fas fa-shield-alt"></i> Secure
+              </span>
+              <span class="badge bg-light text-dark px-3 py-2">
+                <i class="fas fa-cogs"></i> Customizable
+              </span>
+            </div>
+          </div>
+          <div class="col-lg-6">
+            <div class="text-center">
+              <i
+                class="fas fa-file-pdf"
+                style="font-size: 8rem; opacity: 0.7"
+              ></i>
+              <i
+                class="fas fa-arrow-right mx-3"
+                style="font-size: 2rem; opacity: 0.7"
+              ></i>
+              <i
+                class="fas fa-images"
+                style="font-size: 8rem; opacity: 0.7"
+              ></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container my-5">
+      <!-- Upload Section -->
+      <div class="row">
+        <div class="col-lg-8 mx-auto">
+          <div class="settings-panel">
+            <h3 class="mb-4"><i class="fas fa-cog"></i> Conversion Settings</h3>
+            <div class="row">
+              <div class="col-md-3">
+                <label for="dpi" class="form-label">DPI Quality</label>
+                <select class="form-select" id="dpi">
+                  <option value="150">150 DPI (Fast)</option>
+                  <option value="300" selected>300 DPI (Standard)</option>
+                  <option value="600">600 DPI (High)</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label for="quality" class="form-label">JPG Quality</label>
+                <select class="form-select" id="quality">
+                  <option value="70">70% (Small)</option>
+                  <option value="85">85% (Good)</option>
+                  <option value="90" selected>90% (High)</option>
+                  <option value="95">95% (Best)</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label for="pages" class="form-label">Pages to Convert</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="pages"
+                  placeholder="all (or 1-5, 1,3,5, etc.)"
+                  value="all"
+                />
+                <small class="text-muted"
+                  >Examples: all, 1-5, 1,3,5, 1-3,7-9</small
+                >
+              </div>
+            </div>
+          </div>
+
+          <div class="upload-area" id="uploadArea">
+            <i class="fas fa-cloud-upload-alt fa-3x mb-3 text-muted"></i>
+            <h4>Drop your PDF file here or click to browse</h4>
+            <p class="text-muted">Maximum file size: 100MB</p>
+            <input
+              type="file"
+              id="fileInput"
+              accept=".pdf"
+              style="display: none"
+            />
+            <button
+              class="btn btn-primary btn-lg mt-3"
+              onclick="document.getElementById('fileInput').click()"
+            >
+              <i class="fas fa-folder-open"></i> Choose PDF File
+            </button>
+          </div>
+
+          <div class="conversion-progress" id="progressSection">
+            <div class="text-center">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <h5 class="mt-3">Converting your PDF...</h5>
+              <p class="text-muted">
+                This may take a few moments depending on the file size and
+                settings.
+              </p>
+            </div>
+          </div>
+
+          <div class="results-section" id="resultsSection">
+            <div class="alert alert-success">
+              <h4><i class="fas fa-check-circle"></i> Conversion Completed!</h4>
+              <p id="conversionStats" class="mb-0"></p>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h4>Generated Images</h4>
+              <button class="btn btn-outline-primary" id="downloadAllBtn">
+                <i class="fas fa-download"></i> Download All
+              </button>
+            </div>
+            <div class="image-grid" id="imageGrid"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Features Section -->
+    <div class="container my-5">
+      <div class="row">
+        <div class="col-12 text-center mb-5">
+          <h2 class="display-6 fw-bold">Why Choose Our Converter?</h2>
+          <p class="lead text-muted">
+            Professional-grade PDF to image conversion with advanced features
+          </p>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-4 mb-4">
+          <div class="feature-card">
+            <i class="fas fa-rocket feature-icon"></i>
+            <h5>Lightning Fast</h5>
+            <p class="text-muted">
+              Powered by modern technology for quick conversions without
+              compromising quality.
+            </p>
+          </div>
+        </div>
+        <div class="col-md-4 mb-4">
+          <div class="feature-card">
+            <i class="fas fa-sliders-h feature-icon"></i>
+            <h5>Customizable Settings</h5>
+            <p class="text-muted">
+              Control DPI, quality, and page selection to get exactly what you
+              need.
+            </p>
+          </div>
+        </div>
+        <div class="col-md-4 mb-4">
+          <div class="feature-card">
+            <i class="fas fa-lock feature-icon"></i>
+            <h5>Secure & Private</h5>
+            <p class="text-muted">
+              Your files are processed securely and automatically deleted after
+              conversion.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-white py-4">
+      <div class="container">
+        <div class="row">
+          <div class="col-md-6">
+            <h5>PDF to Image Converter</h5>
+            <p class="text-muted">
+              Fast, secure, and reliable PDF to image conversion service.
+            </p>
+          </div>
+          <div class="col-md-6 text-md-end">
+            <p class="text-muted">Built with ❤️ using Bun and Express</p>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      const uploadArea = document.getElementById("uploadArea");
+      const fileInput = document.getElementById("fileInput");
+      const progressSection = document.getElementById("progressSection");
+      const resultsSection = document.getElementById("resultsSection");
+      const imageGrid = document.getElementById("imageGrid");
+      const conversionStats = document.getElementById("conversionStats");
+      const downloadAllBtn = document.getElementById("downloadAllBtn");
+
+      // File input handling
+      fileInput.addEventListener("change", handleFile);
+
+      // Drag and drop handling
+      uploadArea.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        uploadArea.classList.add("dragover");
+      });
+
+      uploadArea.addEventListener("dragleave", () => {
+        uploadArea.classList.remove("dragover");
+      });
+
+      uploadArea.addEventListener("drop", (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove("dragover");
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          handleFile({ target: { files } });
+        }
+      });
+
+      function handleFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if (file.type !== "application/pdf") {
+          alert("Please select a PDF file.");
+          return;
+        }
+
+        convertPDF(file);
+      }
+
+      async function convertPDF(file) {
+        const formData = new FormData();
+        formData.append("pdf", file);
+        formData.append("dpi", document.getElementById("dpi").value);
+        formData.append("quality", document.getElementById("quality").value);
+        formData.append("pages", document.getElementById("pages").value);
+
+        // Show progress
+        uploadArea.style.display = "none";
+        progressSection.style.display = "block";
+        resultsSection.style.display = "none";
+
+        try {
+          const response = await fetch("/api/convert", {
+            method: "POST",
+            body: formData,
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            displayResults(result.data);
+          } else {
+            throw new Error(result.error || "Conversion failed");
+          }
+        } catch (error) {
+          alert("Error: " + error.message);
+          resetForm();
+        }
+      }
+
+      function displayResults(data) {
+        progressSection.style.display = "none";
+        resultsSection.style.display = "block";
+
+        conversionStats.textContent = `Successfully converted ${
+          data.imageCount
+        } images from pages: ${data.pagesConverted.join(", ")}`;
+
+        imageGrid.innerHTML = "";
+        data.images.forEach((image, index) => {
+          const imageCard = document.createElement("div");
+          imageCard.className = "image-card";
+          imageCard.innerHTML = `
+                    <img src="${image.url}" alt="Page ${
+            index + 1
+          }" loading="lazy">
+                    <h6 class="mt-2">${image.filename}</h6>
+                    <a href="${image.url}" download="${
+            image.filename
+          }" class="btn btn-sm btn-primary">
+                        <i class="fas fa-download"></i> Download
+                    </a>
+                `;
+          imageGrid.appendChild(imageCard);
+        });
+
+        // Download all functionality
+        downloadAllBtn.onclick = () => {
+          data.images.forEach((image) => {
+            const a = document.createElement("a");
+            a.href = image.url;
+            a.download = image.filename;
+            a.click();
+          });
+        };
+      }
+
+      function resetForm() {
+        uploadArea.style.display = "block";
+        progressSection.style.display = "none";
+        resultsSection.style.display = "none";
+        fileInput.value = "";
+      }
+
+      // Reset button
+      document.addEventListener("DOMContentLoaded", () => {
+        const resetBtn = document.createElement("button");
+        resetBtn.className = "btn btn-outline-secondary mt-3";
+        resetBtn.innerHTML =
+          '<i class="fas fa-refresh"></i> Convert Another PDF';
+        resetBtn.onclick = resetForm;
+        resultsSection.appendChild(resetBtn);
+      });
+    </script>
+  </body>
+</html>

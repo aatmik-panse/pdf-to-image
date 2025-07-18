@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: pdf-to-image-converter
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    region: oregon
+    branch: main
+    buildCommand: echo "Using Docker build"
+    startCommand: echo "Using Docker start"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: ALLOWED_ORIGINS
+        value: "*"
+    disk:
+      name: pdf-converter-disk
+      mountPath: /app/uploads
+      sizeGB: 10
+    healthCheckPath: /health
+    numInstances: 1
+    scaling:
+      minInstances: 1
+      maxInstances: 3
+      targetCPUPercent: 70
+      targetMemoryPercent: 70

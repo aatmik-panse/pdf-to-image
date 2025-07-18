@@ -1,0 +1,37 @@
+{
+  "name": "pdf-to-image",
+  "version": "1.0.0",
+  "description": "Convert PDF files to JPG images using Bun",
+  "main": "index.ts",
+  "module": "index.ts",
+  "type": "module",
+  "private": false,
+  "scripts": {
+    "start": "bun run server.ts",
+    "build": "bun build server.ts --outdir ./dist",
+    "dev": "bun run --watch server.ts",
+    "cli": "bun run index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@types/compression": "^1.8.1",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/multer": "^2.0.0",
+    "chalk": "^5.4.1",
+    "commander": "^14.0.0",
+    "compression": "^1.8.1",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.0.1",
+    "helmet": "^8.1.0",
+    "multer": "^2.0.2",
+    "pdf2pic": "^3.2.0",
+    "sharp": "^0.34.3"
+  }
+}
