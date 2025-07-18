@@ -209,6 +209,26 @@ app.get("/health", (req, res) => {
   res.json(healthData);
 });
 
+// Handle malformed health check requests (common with monitoring services)
+app.get("/health/health", (req, res) => {
+  log.warn(`🔄 Malformed health check request redirected`, {
+    requestId: req.requestId,
+    originalUrl: req.originalUrl,
+    userAgent: req.get("user-agent"),
+  });
+  res.redirect(301, "/health");
+});
+
+// Handle malformed API requests
+app.post("/health/api/convert", (req, res) => {
+  log.warn(`🔄 Malformed API request redirected`, {
+    requestId: req.requestId,
+    originalUrl: req.originalUrl,
+    userAgent: req.get("user-agent"),
+  });
+  res.redirect(307, "/api/convert"); // 307 preserves POST method
+});
+
 // API endpoint for PDF conversion
 app.post("/api/convert", upload.single("pdf"), async (req, res) => {
   const requestId = req.requestId;
@@ -422,13 +442,39 @@ app.use(
 
 // 404 handler
 app.use((req, res) => {
-  log.warn(`🔍 404 Not Found`, {
-    requestId: req.requestId,
-    url: req.url,
-    method: req.method,
-    userAgent: req.get("user-agent"),
+  // Check if this is a common malformed request
+  const isMalformedHealthCheck = req.url.includes("/health/health");
+  const isMalformedApiCall = req.url.includes("/health/api/");
+
+  if (isMalformedHealthCheck || isMalformedApiCall) {
+    log.warn(`🔍 Malformed request detected`, {
+      requestId: req.requestId,
+      url: req.url,
+      method: req.method,
+      userAgent: req.get("user-agent"),
+      clientIP: req.ip,
+      suggestion: isMalformedHealthCheck
+        ? "Use /health instead of /health/health"
+        : "Use /api/convert instead of /health/api/convert",
+    });
+  } else {
+    log.warn(`🔍 404 Not Found`, {
+      requestId: req.requestId,
+      url: req.url,
+      method: req.method,
+      userAgent: req.get("user-agent"),
+      clientIP: req.ip,
+    });
+  }
+
+  res.status(404).json({
+    error: "Not found",
+    message: isMalformedHealthCheck
+      ? "Try /health instead"
+      : isMalformedApiCall
+      ? "Try /api/convert instead"
+      : "Route not found",
   });
-  res.status(404).json({ error: "Not found" });
 });
 
 // Cleanup old files periodically (every hour)
