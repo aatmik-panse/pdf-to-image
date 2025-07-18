@@ -11,8 +11,15 @@ A fast and efficient REST API built with Bun that converts PDF files to high-qua
 - 📁 **Organized output** directory structure
 - ✅ **Input validation** and error handling
 - 🔒 **Secure processing** with automatic cleanup
-- � **Docker ready** for easy deployment
-- � **REST API** for integration with any frontend
+- 🐛 **Comprehensive logging** for debugging and monitoring
+- 🔧 **Debug mode** for detailed troubleshooting
+- 📊 **System monitoring** and resource tracking
+- 🆔 **Request tracing** with unique IDs
+- 🕒 **Performance metrics** and timing information
+- 📈 **Production monitoring** with resource usage logs
+- 🚦 **Error tracking** with full context and stack traces
+- 🛡️ **Docker ready** for easy deployment
+- 🌐 **REST API** for integration with any frontend
 
 ## 🚀 Quick Start
 
@@ -240,7 +247,71 @@ bun run cli presentation.pdf -o ./slides -d 150 -q 85 -p 1-20
 bun run cli document.pdf -o ./selected-pages -p 1,5,10-15
 ```
 
-## 🚀 Deployment
+## � Debugging & Monitoring
+
+### Enhanced Logging
+
+The application includes comprehensive logging for debugging and monitoring:
+
+- **Component-based logging**: [SERVER], [CONVERTER], [UTILS], [CLI]
+- **Request tracing**: Unique request IDs for tracking
+- **Performance metrics**: Processing time for all operations
+- **Error tracking**: Full stack traces and context
+- **System monitoring**: Resource usage and health metrics
+
+### Debug Mode
+
+Enable debug logging with the `DEBUG` environment variable:
+
+```bash
+# Enable debug mode
+DEBUG=true bun run dev
+
+# Or for production
+DEBUG=true bun start
+```
+
+### Log Levels
+
+| Level   | Color   | Description              |
+| ------- | ------- | ------------------------ |
+| INFO    | Blue    | General information      |
+| SUCCESS | Green   | Successful operations    |
+| WARN    | Yellow  | Warnings                 |
+| ERROR   | Red     | Errors with stack traces |
+| DEBUG   | Magenta | Detailed debugging info  |
+
+### Monitoring Production
+
+In production, the application automatically logs:
+
+- System resource usage every 5 minutes
+- Request/response metrics
+- Error rates and patterns
+- Cleanup operations
+- Health check status
+
+### Troubleshooting
+
+Common debugging scenarios:
+
+```bash
+# Check server logs
+docker logs pdf-to-image-app
+
+# Filter by component
+docker logs pdf-to-image-app | grep "\[CONVERTER\]"
+
+# Filter by error level
+docker logs pdf-to-image-app | grep "\[ERROR\]"
+
+# Check system resources
+curl http://localhost:3000/health | jq .memory
+```
+
+For detailed logging documentation, see [LOGGING.md](LOGGING.md).
+
+## �🚀 Deployment
 
 ### Render (Recommended)
 
