@@ -7,9 +7,20 @@ import rateLimit from "express-rate-limit";
 import { promises as fs } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import os from "os";
 import { convertPdfToImages } from "./src/converter";
 import { validatePdfFile } from "./src/utils";
 import chalk from "chalk";
+import {
+  ensureBucket,
+  createGCSMulterStorage,
+  uploadFile,
+  downloadFile,
+  deleteFile,
+  cleanupOldFiles,
+  getSignedUrl,
+  bucketName
+} from "./src/storage";
 
 // Enhanced logging utility
 const log = {
@@ -80,11 +91,17 @@ app.use((req, res, next) => {
   next();
 });
 
-// Add requestId to express request type
+// Add requestId to express request type and extend Multer File type
 declare global {
   namespace Express {
     interface Request {
       requestId?: string;
+    }
+    
+    namespace Multer {
+      interface File {
+        gcsObject?: string;
+      }
     }
   }
 }
@@ -132,33 +149,15 @@ app.use(express.json({ limit: "100mb" }));
 app.use(express.urlencoded({ extended: true, limit: "100mb" }));
 
 // Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: async (req, file, cb) => {
-    try {
-      // Use mounted disk path for persistent storage
-      const uploadDir = path.join(__dirname, "data", "uploads");
-      await fs.mkdir(uploadDir, { recursive: true });
-      log.debug(`📁 Upload directory created/verified: ${uploadDir}`, {
-        requestId: req.requestId,
-      });
-      cb(null, uploadDir);
-    } catch (error) {
-      log.error(`❌ Failed to create upload directory`, error);
-      cb(error as Error, "");
-    }
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const filename = `${uniqueSuffix}-${file.originalname}`;
-    log.debug(`📄 Generated filename: ${filename}`, {
-      requestId: req.requestId,
-      originalName: file.originalname,
-      mimetype: file.mimetype,
-      size: file.size,
-    });
-    cb(null, filename);
-  },
-});
+// Initialize GCS storage for multer
+const storage = createGCSMulterStorage();
+
+// Create temp directory for processing
+async function createTempDir() {
+  const tempDir = path.join(os.tmpdir(), 'pdf-to-image-' + Date.now());
+  await fs.mkdir(tempDir, { recursive: true });
+  return tempDir;
+}
 
 const upload = multer({
   storage,
@@ -233,8 +232,13 @@ app.post("/health/api/convert", (req, res) => {
 app.post("/api/convert", upload.single("pdf"), async (req, res) => {
   const requestId = req.requestId;
   const startTime = Date.now();
+  let tempDir = null;
+  let tempPdfPath = null;
 
   try {
+    // Initialize GCS bucket
+    await ensureBucket();
+    
     log.info(`🚀 PDF conversion started`, {
       requestId,
       body: req.body,
@@ -243,12 +247,12 @@ app.post("/api/convert", upload.single("pdf"), async (req, res) => {
             originalname: req.file.originalname,
             mimetype: req.file.mimetype,
             size: req.file.size,
-            path: req.file.path,
+            gcsObject: req.file.gcsObject,
           }
         : null,
     });
 
-    if (!req.file) {
+    if (!req.file || !req.file.gcsObject) {
       log.warn(`❌ No PDF file uploaded`, { requestId });
       return res.status(400).json({ error: "No PDF file uploaded" });
     }
@@ -262,60 +266,103 @@ app.post("/api/convert", upload.single("pdf"), async (req, res) => {
 
     log.debug(`⚙️ Conversion options`, { requestId, ...conversionOptions });
 
-    const outputDir = path.join(
-      __dirname,
-      "data",
-      "output",
-      `conversion-${Date.now()}`
-    );
+    // Create temporary directory for processing
+    tempDir = await createTempDir();
+    tempPdfPath = path.join(tempDir, 'input.pdf');
+    
+    // Download the PDF from GCS to temp directory
+    log.debug(`📥 Downloading PDF from GCS for processing`, {
+      requestId,
+      gcsObject: req.file.gcsObject,
+      tempPath: tempPdfPath
+    });
+    
+    await downloadFile(req.file.gcsObject, tempPdfPath);
+    
+    // Create output directory in temp folder
+    const outputDir = path.join(tempDir, 'output');
+    await fs.mkdir(outputDir, { recursive: true });
 
-    log.debug(`📁 Output directory: ${outputDir}`, { requestId });
+    log.debug(`📁 Temp output directory: ${outputDir}`, { requestId });
 
     // Validate PDF file
     log.debug(`🔍 Starting PDF validation`, {
       requestId,
-      filePath: req.file.path,
+      filePath: tempPdfPath,
     });
-    await validatePdfFile(req.file.path);
+    await validatePdfFile(tempPdfPath);
     log.success(`✅ PDF validation completed`, { requestId });
 
     // Convert PDF to images
     log.info(`🔄 Starting PDF to image conversion`, {
       requestId,
-      filePath: req.file.path,
+      filePath: tempPdfPath,
     });
-    const result = await convertPdfToImages(req.file.path, {
+    const result = await convertPdfToImages(tempPdfPath, {
       outputDir,
       ...conversionOptions,
     });
     log.success(`✅ PDF conversion completed`, { requestId, result });
 
-    // Get list of generated images with their URLs
+    // Get list of generated images
     log.debug(`📋 Reading generated images`, {
       requestId,
       outputDir: result.outputDir,
     });
     const imageFiles = await fs.readdir(result.outputDir);
-    const images = imageFiles
-      .filter((file) => file.endsWith(".jpg"))
-      .map((file) => ({
-        filename: file,
-        url: `/output/${path.basename(result.outputDir)}/${file}`,
-      }));
+    
+    // Upload images to GCS
+    const gcsOutputPrefix = `output/conversion-${Date.now()}`;
+    const uploadPromises = imageFiles
+      .filter(file => file.endsWith('.jpg'))
+      .map(async (file) => {
+        const localPath = path.join(result.outputDir, file);
+        const gcsPath = `${gcsOutputPrefix}/${file}`;
+        await uploadFile(localPath, gcsPath, {
+          contentType: 'image/jpeg',
+          metadata: JSON.stringify({ requestId })
+        });
+        return file;
+      });
+      
+    await Promise.all(uploadPromises);
+    log.success(`✅ Uploaded ${imageFiles.length} images to GCS`, { requestId });
+    
+    // Generate signed URLs for the images
+    const signedUrlPromises = imageFiles
+      .filter(file => file.endsWith('.jpg'))
+      .map(async (file) => {
+        const gcsPath = `${gcsOutputPrefix}/${file}`;
+        const url = await getSignedUrl(gcsPath, 60); // 60 minutes expiration
+        return {
+          filename: file,
+          url: url,
+          path: `gs://${bucketName}/${gcsPath}`
+        };
+      });
+      
+    const images = await Promise.all(signedUrlPromises);
 
-    log.debug(`📸 Generated images`, {
+    log.debug(`📸 Generated image URLs`, {
       requestId,
       imageCount: images.length,
-      images,
     });
 
-    // Clean up uploaded PDF file
-    log.debug(`🧹 Cleaning up uploaded PDF`, {
+    // Clean up GCS uploaded PDF file
+    log.debug(`🧹 Cleaning up uploaded PDF from GCS`, {
       requestId,
-      filePath: req.file.path,
+      gcsObject: req.file.gcsObject,
     });
-    await fs.unlink(req.file.path);
-    log.success(`✅ Cleanup completed`, { requestId });
+    await deleteFile(req.file.gcsObject);
+    log.success(`✅ GCS cleanup completed`, { requestId });
+    
+    // Clean up temp directory
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+      log.debug(`🧹 Removed temporary directory: ${tempDir}`, { requestId });
+    } catch (err) {
+      log.warn(`⚠️ Failed to remove temporary directory: ${tempDir}`, { requestId, error: err });
+    }
 
     const processingTime = Date.now() - startTime;
     const response = {
@@ -477,53 +524,33 @@ app.use((req, res) => {
   });
 });
 
-// Cleanup old files periodically (every hour)
+// Cleanup old files in GCS periodically (every hour)
 setInterval(async () => {
   const cleanupStart = Date.now();
-  log.info(`🧹 Starting periodic cleanup`);
+  log.info(`🧹 Starting periodic GCS cleanup`);
 
   try {
-    const outputDir = path.join(__dirname, "data", "output");
-    const uploadsDir = path.join(__dirname, "data", "uploads");
-
-    // Clean up output directories older than 1 hour
-    const now = Date.now();
-    const maxAge = 60 * 60 * 1000; // 1 hour
-    let cleanedFiles = 0;
-
-    for (const dir of [outputDir, uploadsDir]) {
-      try {
-        const files = await fs.readdir(dir);
-        log.debug(`🔍 Checking ${files.length} files in ${dir}`);
-
-        for (const file of files) {
-          const filePath = path.join(dir, file);
-          const stats = await fs.stat(filePath);
-          const age = now - stats.mtime.getTime();
-
-          if (age > maxAge) {
-            await fs.rm(filePath, { recursive: true, force: true });
-            cleanedFiles++;
-            log.debug(
-              `🗑️ Removed old file/directory: ${file} (age: ${Math.round(
-                age / 1000 / 60
-              )}min)`
-            );
-          }
-        }
-      } catch (error) {
-        log.error(`❌ Error cleaning up ${dir}`, error);
-      }
-    }
-
+    // Clean up files in GCS older than specified time
+    const maxAgeMinutes = 60; // 1 hour
+    
+    // Clean up uploads
+    const uploadsCleanedCount = await cleanupOldFiles('uploads/', maxAgeMinutes);
+    
+    // Clean up output files
+    const outputCleanedCount = await cleanupOldFiles('output/', maxAgeMinutes);
+    
+    const totalCleanedFiles = uploadsCleanedCount + outputCleanedCount;
     const cleanupTime = Date.now() - cleanupStart;
-    log.success(`✅ Periodic cleanup completed`, {
-      cleanedFiles,
+    
+    log.success(`✅ Periodic GCS cleanup completed`, {
+      totalCleanedFiles,
+      uploadsCleanedCount,
+      outputCleanedCount,
       processingTime: `${cleanupTime}ms`,
-      directories: [outputDir, uploadsDir],
+      bucketName,
     });
   } catch (error) {
-    log.error(`💥 Error during cleanup`, error);
+    log.error(`💥 Error during GCS cleanup`, error);
   }
 }, 60 * 60 * 1000); // Run every hour
 

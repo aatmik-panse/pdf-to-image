@@ -18,8 +18,56 @@ A fast and efficient REST API built with Bun that converts PDF files to high-qua
 - 🕒 **Performance metrics** and timing information
 - 📈 **Production monitoring** with resource usage logs
 - 🚦 **Error tracking** with full context and stack traces
+- ☁️ **Cloud storage** with Google Cloud Storage
+- 🚀 **Render-ready** for auto-scaling environments
 - 🛡️ **Docker ready** for easy deployment
 - 🌐 **REST API** for integration with any frontend
+
+## ☁️ Cloud Storage Integration
+
+This application uses Google Cloud Storage (GCS) for both input and output files, making it perfect for auto-scaling environments like Render where persistent disk storage is not available.
+
+### Benefits of Cloud Storage
+
+- **Stateless Application**: No dependency on local disk storage
+- **Auto-scaling Friendly**: Works seamlessly with Render's auto-scaling
+- **Improved Reliability**: Files persist even when instances are restarted
+- **Better Performance**: Offloads file storage operations from application servers
+- **Automatic Cleanup**: Configurable retention policy (default: 1 hour)
+
+### Setup for Google Cloud Storage
+
+1. **Create a GCS bucket**:
+   ```bash
+   gsutil mb -p your-project-id gs://pdf-to-image-converter
+   ```
+
+2. **Create a service account** with Storage Admin permissions
+
+3. **Configure environment variables**:
+   - For local development: Use `GCS_KEY_FILE` pointing to your service account key
+   - For Render deployment: Use `GCS_CREDENTIALS` with the JSON content of your service account key
+
+## 🚀 Deployment on Render
+
+This application is optimized for Render's auto-scaling environment with 1vCPU and 2GB RAM:
+
+1. **Create a new Web Service** on Render
+
+2. **Connect your repository**
+
+3. **Configure environment variables**:
+   ```
+   NODE_ENV=production
+   PORT=3000
+   GCS_PROJECT_ID=your-project-id
+   GCS_BUCKET_NAME=pdf-to-image-converter
+   GCS_CREDENTIALS={"type":"service_account",...}
+   ```
+
+4. **Deploy** with the following settings:
+   - Build Command: `npm install`
+   - Start Command: `npm start`
 
 ## 🚀 Quick Start
 

@@ -3,7 +3,7 @@ services:
     name: pdf-to-image-converter
     env: docker
     dockerfilePath: ./Dockerfile
-    plan: starter
+    plan: starter # 1 vCPU, 2GB RAM
     region: oregon
     branch: main
     buildCommand: echo "Using Docker build"
@@ -15,14 +15,18 @@ services:
         value: 3000
       - key: ALLOWED_ORIGINS
         value: "*"
-    disk:
-      name: pdf-converter-disk
-      mountPath: /app/data
-      sizeGB: 10
+      - key: GCS_PROJECT_ID
+        value: tokyo-portal-459007-n8
+      - key: GCS_BUCKET_NAME
+        value: gradonix
+      - key: GCS_SERVICE_ACCOUNT_KEY
+        sync: false # Set this in the Render dashboard as a secret
+    # No disk needed since we're using GCS
     healthCheckPath: /health
     numInstances: 1
     scaling:
       minInstances: 1
-      maxInstances: 3
-      targetCPUPercent: 70
-      targetMemoryPercent: 70
+      maxInstances: 5
+      targetCPUPercent: 90
+      targetMemoryPercent: 90
+    autoDeploy: true

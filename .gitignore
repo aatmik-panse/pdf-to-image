@@ -63,3 +63,8 @@ Thumbs.db
 
 # Finder (MacOS) folder config
 .DS_Store
+
+
+# Google Cloud Storage key
+.gcs-key.json
+gcs-key.json
