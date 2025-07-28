@@ -43,15 +43,27 @@ const log = {
 
 const gcsCredentialsString = process.env.GCS_SERVICE_ACCOUNT_KEY;
 
+// Helper function to safely parse JSON credentials
+const parseCredentials = (credentialsString: string) => {
+  try {
+    // Replace single quotes with double quotes for valid JSON
+    const validJsonString = credentialsString.replace(/'/g, '"');
+    return JSON.parse(validJsonString);
+  } catch (error) {
+    log.error("Failed to parse GCS credentials", error);
+    return undefined;
+  }
+};
+
 // Initialize Google Cloud Storage
 const storage = new Storage({
   projectId: process.env.GCS_PROJECT_ID,
   keyFilename: process.env.GCS_KEY_FILE,
   // If using service account credentials from environment variable
   credentials: process.env.GCS_CREDENTIALS
-    ? JSON.parse(process.env.GCS_CREDENTIALS)
+    ? parseCredentials(process.env.GCS_CREDENTIALS)
     : gcsCredentialsString
-    ? JSON.parse(gcsCredentialsString)
+    ? parseCredentials(gcsCredentialsString)
     : undefined,
 });
 
