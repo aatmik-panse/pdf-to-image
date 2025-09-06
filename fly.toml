@@ -1,5 +1,5 @@
 app = 'pdftoimage'
-primary_region = 'bom'
+primary_region = 'iad'
 
 [http_service]
   internal_port = 3000
