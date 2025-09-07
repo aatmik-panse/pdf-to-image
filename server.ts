@@ -19,7 +19,7 @@ import {
   deleteFile,
   cleanupOldFiles,
   getSignedUrl,
-  bucketName
+  bucketName,
 } from "./src/storage";
 
 // Enhanced logging utility
@@ -97,7 +97,7 @@ declare global {
     interface Request {
       requestId?: string;
     }
-    
+
     namespace Multer {
       interface File {
         gcsObject?: string;
@@ -154,7 +154,7 @@ const storage = createGCSMulterStorage();
 
 // Create temp directory for processing
 async function createTempDir() {
-  const tempDir = path.join(os.tmpdir(), 'pdf-to-image-' + Date.now());
+  const tempDir = path.join(os.tmpdir(), "pdf-to-image-" + Date.now());
   await fs.mkdir(tempDir, { recursive: true });
   return tempDir;
 }
@@ -191,11 +191,12 @@ const upload = multer({
 app.use("/output", express.static(path.join(__dirname, "data", "output")));
 
 // Health check endpoint
+
 app.get("/health", (req, res) => {
   const healthData = {
     status: "healthy",
     timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
+    uptime: Math.round(process.uptime()),
     memory: process.memoryUsage(),
     version: process.version,
     environment: process.env.NODE_ENV || "development",
@@ -208,6 +209,47 @@ app.get("/health", (req, res) => {
   res.json(healthData);
 });
 
+// Memory monitoring endpoint for debugging
+app.get("/debug/memory", (req, res) => {
+  const memUsage = process.memoryUsage();
+
+  // Force garbage collection if available for testing
+  if (global.gc && req.query.gc === "true") {
+    global.gc();
+    log.info(`🧹 Manual garbage collection triggered`, {
+      requestId: req.requestId,
+    });
+  }
+
+  const memUsageAfterGC = global.gc ? process.memoryUsage() : memUsage;
+
+  const memoryData = {
+    beforeGC: {
+      rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
+      heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
+      heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
+      external: `${Math.round(memUsage.external / 1024 / 1024)}MB`,
+    },
+    afterGC: global.gc
+      ? {
+          rss: `${Math.round(memUsageAfterGC.rss / 1024 / 1024)}MB`,
+          heapUsed: `${Math.round(memUsageAfterGC.heapUsed / 1024 / 1024)}MB`,
+          heapTotal: `${Math.round(memUsageAfterGC.heapTotal / 1024 / 1024)}MB`,
+          external: `${Math.round(memUsageAfterGC.external / 1024 / 1024)}MB`,
+        }
+      : null,
+    gcAvailable: !!global.gc,
+    timestamp: new Date().toISOString(),
+    uptime: Math.round(process.uptime()),
+  };
+
+  log.debug(`🔍 Memory debug info requested`, {
+    requestId: req.requestId,
+    ...memoryData,
+  });
+
+  res.json(memoryData);
+});
 // Handle malformed health check requests (common with monitoring services)
 app.get("/health/health", (req, res) => {
   log.warn(`🔄 Malformed health check request redirected`, {
@@ -238,7 +280,19 @@ app.post("/api/convert", upload.single("pdf"), async (req, res) => {
   try {
     // Initialize GCS bucket
     await ensureBucket();
-    
+
+    // Log memory usage before conversion for monitoring
+    const memUsageBefore = process.memoryUsage();
+    log.debug(`📊 Memory usage before conversion`, {
+      requestId,
+      memory: {
+        rss: `${Math.round(memUsageBefore.rss / 1024 / 1024)}MB`,
+        heapUsed: `${Math.round(memUsageBefore.heapUsed / 1024 / 1024)}MB`,
+        heapTotal: `${Math.round(memUsageBefore.heapTotal / 1024 / 1024)}MB`,
+        external: `${Math.round(memUsageBefore.external / 1024 / 1024)}MB`,
+      },
+    });
+
     log.info(`🚀 PDF conversion started`, {
       requestId,
       body: req.body,
@@ -268,19 +322,19 @@ app.post("/api/convert", upload.single("pdf"), async (req, res) => {
 
     // Create temporary directory for processing
     tempDir = await createTempDir();
-    tempPdfPath = path.join(tempDir, 'input.pdf');
-    
+    tempPdfPath = path.join(tempDir, "input.pdf");
+
     // Download the PDF from GCS to temp directory
     log.debug(`📥 Downloading PDF from GCS for processing`, {
       requestId,
       gcsObject: req.file.gcsObject,
-      tempPath: tempPdfPath
+      tempPath: tempPdfPath,
     });
-    
+
     await downloadFile(req.file.gcsObject, tempPdfPath);
-    
+
     // Create output directory in temp folder
-    const outputDir = path.join(tempDir, 'output');
+    const outputDir = path.join(tempDir, "output");
     await fs.mkdir(outputDir, { recursive: true });
 
     log.debug(`📁 Temp output directory: ${outputDir}`, { requestId });
@@ -310,37 +364,39 @@ app.post("/api/convert", upload.single("pdf"), async (req, res) => {
       outputDir: result.outputDir,
     });
     const imageFiles = await fs.readdir(result.outputDir);
-    
+
     // Upload images to GCS
     const gcsOutputPrefix = `output/conversion-${Date.now()}`;
     const uploadPromises = imageFiles
-      .filter(file => file.endsWith('.jpg'))
+      .filter((file) => file.endsWith(".jpg"))
       .map(async (file) => {
         const localPath = path.join(result.outputDir, file);
         const gcsPath = `${gcsOutputPrefix}/${file}`;
         await uploadFile(localPath, gcsPath, {
-          contentType: 'image/jpeg',
-          metadata: JSON.stringify({ requestId })
+          contentType: "image/jpeg",
+          metadata: JSON.stringify({ requestId }),
         });
         return file;
       });
-      
+
     await Promise.all(uploadPromises);
-    log.success(`✅ Uploaded ${imageFiles.length} images to GCS`, { requestId });
-    
+    log.success(`✅ Uploaded ${imageFiles.length} images to GCS`, {
+      requestId,
+    });
+
     // Generate signed URLs for the images
     const signedUrlPromises = imageFiles
-      .filter(file => file.endsWith('.jpg'))
+      .filter((file) => file.endsWith(".jpg"))
       .map(async (file) => {
         const gcsPath = `${gcsOutputPrefix}/${file}`;
         const url = await getSignedUrl(gcsPath, 60); // 60 minutes expiration
         return {
           filename: file,
           url: url,
-          path: `gs://${bucketName}/${gcsPath}`
+          path: `gs://${bucketName}/${gcsPath}`,
         };
       });
-      
+
     const images = await Promise.all(signedUrlPromises);
 
     log.debug(`📸 Generated image URLs`, {
@@ -355,14 +411,37 @@ app.post("/api/convert", upload.single("pdf"), async (req, res) => {
     });
     await deleteFile(req.file.gcsObject);
     log.success(`✅ GCS cleanup completed`, { requestId });
-    
+
     // Clean up temp directory
     try {
       await fs.rm(tempDir, { recursive: true, force: true });
       log.debug(`🧹 Removed temporary directory: ${tempDir}`, { requestId });
     } catch (err) {
-      log.warn(`⚠️ Failed to remove temporary directory: ${tempDir}`, { requestId, error: err });
+      log.warn(`⚠️ Failed to remove temporary directory: ${tempDir}`, {
+        requestId,
+        error: err,
+      });
     }
+
+    // 🚀 MEMORY OPTIMIZATION: Force garbage collection after successful conversion
+    if (global.gc) {
+      global.gc();
+      log.debug(`🧹 Forced garbage collection after successful conversion`, {
+        requestId,
+      });
+    }
+
+    // Log memory usage after conversion for monitoring
+    const memUsageAfter = process.memoryUsage();
+    log.debug(`📊 Memory usage after conversion`, {
+      requestId,
+      memory: {
+        rss: `${Math.round(memUsageAfter.rss / 1024 / 1024)}MB`,
+        heapUsed: `${Math.round(memUsageAfter.heapUsed / 1024 / 1024)}MB`,
+        heapTotal: `${Math.round(memUsageAfter.heapTotal / 1024 / 1024)}MB`,
+        external: `${Math.round(memUsageAfter.external / 1024 / 1024)}MB`,
+      },
+    });
 
     const processingTime = Date.now() - startTime;
     const response = {
@@ -408,6 +487,47 @@ app.post("/api/convert", upload.single("pdf"), async (req, res) => {
           unlinkError,
         });
       }
+    }
+
+    // 🚨 CRITICAL FIX: Clean up temp directory in error cases
+    if (tempDir) {
+      try {
+        await fs.rm(tempDir, { recursive: true, force: true });
+        log.debug(
+          `🧹 Emergency cleanup: Removed temporary directory after error: ${tempDir}`,
+          { requestId }
+        );
+      } catch (cleanupError) {
+        log.error(
+          `❌ Failed to cleanup temp directory after error: ${tempDir}`,
+          {
+            requestId,
+            cleanupError,
+          }
+        );
+      }
+    }
+
+    // Clean up GCS uploaded file if it exists
+    if (req.file?.gcsObject) {
+      try {
+        await deleteFile(req.file.gcsObject);
+        log.debug(`🧹 GCS file cleaned up after error`, {
+          requestId,
+          gcsObject: req.file.gcsObject,
+        });
+      } catch (gcsCleanupError) {
+        log.error(`❌ Error cleaning up GCS file after error`, {
+          requestId,
+          gcsCleanupError,
+        });
+      }
+    }
+
+    // Force garbage collection if available
+    if (global.gc) {
+      global.gc();
+      log.debug(`🧹 Forced garbage collection after error`, { requestId });
     }
 
     const errorMessage =
@@ -532,16 +652,19 @@ setInterval(async () => {
   try {
     // Clean up files in GCS older than specified time
     const maxAgeMinutes = 60; // 1 hour
-    
+
     // Clean up uploads
-    const uploadsCleanedCount = await cleanupOldFiles('uploads/', maxAgeMinutes);
-    
+    const uploadsCleanedCount = await cleanupOldFiles(
+      "uploads/",
+      maxAgeMinutes
+    );
+
     // Clean up output files
-    const outputCleanedCount = await cleanupOldFiles('output/', maxAgeMinutes);
-    
+    const outputCleanedCount = await cleanupOldFiles("output/", maxAgeMinutes);
+
     const totalCleanedFiles = uploadsCleanedCount + outputCleanedCount;
     const cleanupTime = Date.now() - cleanupStart;
-    
+
     log.success(`✅ Periodic GCS cleanup completed`, {
       totalCleanedFiles,
       uploadsCleanedCount,

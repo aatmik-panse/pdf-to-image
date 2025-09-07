@@ -29,6 +29,8 @@ RUN mkdir -p data/uploads data/output
 
 # Set environment variables (Railway will provide PORT dynamically)
 ENV NODE_ENV=production
+# Enable garbage collection expose flag for memory optimization
+ENV NODE_OPTIONS="--expose-gc --max-old-space-size=4096"
 
 # Health check for Railway (use PORT env var with fallback)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

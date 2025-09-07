@@ -159,16 +159,28 @@ export async function convertPdfToImages(
       });
 
       try {
-        // Read PNG and convert to JPG
+        // Read PNG and convert to JPG with memory optimization
         const sharpStart = Date.now();
-        await sharp(pngResult.path).jpeg({ quality }).toFile(jpgPath);
+
+        // 🚀 MEMORY OPTIMIZATION: Process with limited concurrency and explicit cleanup
+        const sharpProcessor = sharp(pngResult.path).jpeg({
+          quality,
+          progressive: true, // Reduces memory usage during encoding
+          mozjpeg: true, // Better compression and memory efficiency
+        });
+
+        await sharpProcessor.toFile(jpgPath);
+
+        // Explicitly destroy the Sharp instance to free memory
+        sharpProcessor.destroy();
+
         const sharpTime = Date.now() - sharpStart;
 
         log.debug(`✅ Sharp conversion completed for page ${pageNumber}`, {
           processingTime: `${sharpTime}ms`,
         });
 
-        // Remove the temporary PNG file
+        // Remove the temporary PNG file immediately after conversion
         await fs.unlink(pngResult.path);
         log.debug(`🗑️ Temporary PNG file removed: ${pngResult.path}`);
 
@@ -176,8 +188,25 @@ export async function convertPdfToImages(
         convertedPages.push(pageNumber);
 
         log.success(`✅ Page ${pageNumber} converted to JPG successfully`);
+
+        // 🧹 MEMORY OPTIMIZATION: Force garbage collection between pages for large documents
+        if (pngResults.length > 5 && i % 3 === 0 && global.gc) {
+          global.gc();
+          log.debug(`🧹 Forced garbage collection after page ${pageNumber}`);
+        }
       } catch (error) {
         log.error(`❌ Error converting page ${pageNumber}`, error);
+
+        // Clean up PNG file even on error
+        try {
+          await fs.unlink(pngResult.path);
+          log.debug(`🧹 Cleaned up PNG file after error: ${pngResult.path}`);
+        } catch (unlinkError) {
+          log.warn(
+            `⚠️ Failed to cleanup PNG file after error: ${pngResult.path}`
+          );
+        }
+
         throw error;
       }
     }
