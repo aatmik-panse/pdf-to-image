@@ -369,21 +369,22 @@ app.post("/api/convert", upload.single("pdf"), async (req, res) => {
     });
 
     let result;
-    if (fast === "true") {
-      // Use FAST converter for maximum speed
-      result = await convertPdfToImagesFast(tempPdfPath, {
-        outputDir,
-        ...conversionOptions,
-      });
-    } else {
-      // Use original converter for compatibility
-      result = await convertPdfToImages(tempPdfPath, {
-        outputDir,
-        dpi: conversionOptions.dpi,
-        quality: conversionOptions.quality,
-        pages: conversionOptions.pages,
-      });
-    }
+    // if (fast === "true") {
+    // Use FAST converter for maximum speed
+    result = await convertPdfToImagesFast(tempPdfPath, {
+      outputDir,
+      ...conversionOptions,
+    });
+    // }
+    // else {
+    //   // Use original converter for compatibility
+    //   result = await convertPdfToImages(tempPdfPath, {
+    //     outputDir,
+    //     dpi: conversionOptions.dpi,
+    //     quality: conversionOptions.quality,
+    //     pages: conversionOptions.pages,
+    //   });
+    // }
 
     log.success(`✅ PDF conversion completed`, { requestId, result });
 
