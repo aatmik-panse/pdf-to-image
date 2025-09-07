@@ -21,6 +21,7 @@ import {
   getSignedUrl,
   bucketName,
 } from "./src/storage";
+import { convertPdfToImagesFast } from "./src/converter-fast";
 
 // Enhanced logging utility
 const log = {
@@ -311,14 +312,27 @@ app.post("/api/convert", upload.single("pdf"), async (req, res) => {
       return res.status(400).json({ error: "No PDF file uploaded" });
     }
 
-    const { dpi = "300", quality = "90", pages = "all" } = req.body;
+    const {
+      dpi = "200",
+      quality = "90",
+      pages = "all",
+      format = "jpg", // NEW: Support for format selection
+      fast = "true", // NEW: Enable fast mode by default
+    } = req.body;
+
     const conversionOptions = {
       dpi: parseInt(dpi),
       quality: parseInt(quality),
       pages,
+      format: (format.toLowerCase() === "png" ? "png" : "jpg") as "png" | "jpg",
+      maxConcurrency: Math.min(os.cpus().length, 4),
     };
 
-    log.debug(`⚙️ Conversion options`, { requestId, ...conversionOptions });
+    log.debug(`⚙️ Conversion options`, {
+      requestId,
+      ...conversionOptions,
+      fastMode: fast === "true",
+    });
 
     // Create temporary directory for processing
     tempDir = await createTempDir();
@@ -347,15 +361,30 @@ app.post("/api/convert", upload.single("pdf"), async (req, res) => {
     await validatePdfFile(tempPdfPath);
     log.success(`✅ PDF validation completed`, { requestId });
 
-    // Convert PDF to images
+    // Convert PDF to images using FAST converter by default
     log.info(`🔄 Starting PDF to image conversion`, {
       requestId,
       filePath: tempPdfPath,
+      fastMode: fast === "true",
     });
-    const result = await convertPdfToImages(tempPdfPath, {
-      outputDir,
-      ...conversionOptions,
-    });
+
+    let result;
+    if (fast === "true") {
+      // Use FAST converter for maximum speed
+      result = await convertPdfToImagesFast(tempPdfPath, {
+        outputDir,
+        ...conversionOptions,
+      });
+    } else {
+      // Use original converter for compatibility
+      result = await convertPdfToImages(tempPdfPath, {
+        outputDir,
+        dpi: conversionOptions.dpi,
+        quality: conversionOptions.quality,
+        pages: conversionOptions.pages,
+      });
+    }
+
     log.success(`✅ PDF conversion completed`, { requestId, result });
 
     // Get list of generated images
@@ -367,13 +396,17 @@ app.post("/api/convert", upload.single("pdf"), async (req, res) => {
 
     // Upload images to GCS
     const gcsOutputPrefix = `output/conversion-${Date.now()}`;
+    const fileExtension = conversionOptions.format === "png" ? ".png" : ".jpg";
+    const contentType =
+      conversionOptions.format === "png" ? "image/png" : "image/jpeg";
+
     const uploadPromises = imageFiles
-      .filter((file) => file.endsWith(".jpg"))
+      .filter((file) => file.endsWith(fileExtension))
       .map(async (file) => {
         const localPath = path.join(result.outputDir, file);
         const gcsPath = `${gcsOutputPrefix}/${file}`;
         await uploadFile(localPath, gcsPath, {
-          contentType: "image/jpeg",
+          contentType,
           metadata: JSON.stringify({ requestId }),
         });
         return file;
@@ -386,7 +419,7 @@ app.post("/api/convert", upload.single("pdf"), async (req, res) => {
 
     // Generate signed URLs for the images
     const signedUrlPromises = imageFiles
-      .filter((file) => file.endsWith(".jpg"))
+      .filter((file) => file.endsWith(fileExtension))
       .map(async (file) => {
         const gcsPath = `${gcsOutputPrefix}/${file}`;
         const url = await getSignedUrl(gcsPath, 60); // 60 minutes expiration
@@ -544,13 +577,14 @@ app.post("/api/convert", upload.single("pdf"), async (req, res) => {
 app.get("/", (req, res) => {
   log.info(`📖 API documentation requested`, { requestId: req.requestId });
   res.json({
-    name: "PDF to Image Converter API",
-    version: "1.0.0",
-    description: "Convert PDF files to JPG images via REST API",
+    name: "PDF to Image Converter API - FAST MODE",
+    version: "2.0.0",
+    description:
+      "High-performance PDF to Image converter with support for JPG and PNG formats",
     endpoints: {
       health: "GET /health",
       convert: "POST /api/convert",
-      images: "GET /output/{folder}/{filename}",
+      memory: "GET /debug/memory",
     },
     usage: {
       convert: {
@@ -560,12 +594,25 @@ app.get("/", (req, res) => {
         fields: {
           pdf: "PDF file (required)",
           dpi: "DPI resolution (optional, default: 300)",
-          quality: "JPG quality 1-100 (optional, default: 90)",
-          pages: "Page range (optional, default: 'all')",
+          quality: "Image quality 1-100 (optional, default: 90)",
+          pages:
+            "Page range (optional, default: 'all', examples: '1-5', '1,3,5')",
+          format:
+            "Output format (optional, default: 'jpg', options: 'jpg' or 'png')",
+          fast: "Enable fast mode (optional, default: 'true', set to 'false' for compatibility mode)",
         },
-        example:
-          "curl -X POST -F 'pdf=@document.pdf' -F 'dpi=300' -F 'quality=90' /api/convert",
+        examples: [
+          "curl -X POST -F 'pdf=@document.pdf' /api/convert",
+          "curl -X POST -F 'pdf=@document.pdf' -F 'format=png' /api/convert",
+          "curl -X POST -F 'pdf=@document.pdf' -F 'dpi=600' -F 'quality=95' -F 'pages=1-3' /api/convert",
+        ],
       },
+    },
+    performance: {
+      fastMode: "Enabled by default for maximum speed",
+      concurrency: `${Math.min(os.cpus().length, 4)} parallel workers`,
+      formats: ["JPG (fast, smaller files)", "PNG (lossless, larger files)"],
+      memoryOptimization: "Automatic cleanup and garbage collection",
     },
   });
 });
