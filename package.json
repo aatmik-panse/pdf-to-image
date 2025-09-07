@@ -10,7 +10,8 @@
     "start": "bun run server.ts",
     "build": "bun build server.ts --outdir ./dist",
     "dev": "bun run --watch server.ts",
-    "cli": "bun run index.ts"
+    "cli": "bun run index.ts",
+    "railway:start": "bun run server.ts"
   },
   "devDependencies": {
     "@types/bun": "latest"
@@ -20,6 +21,7 @@
   },
   "dependencies": {
     "@google-cloud/storage": "^7.7.0",
+    "@sentry/node": "^7.114.0",
     "@types/compression": "^1.8.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",

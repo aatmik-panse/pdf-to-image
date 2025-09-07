@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y \
     imagemagick \
     graphicsmagick \
     ghostscript \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app directory
@@ -17,23 +18,21 @@ COPY package.json bun.lock ./
 # Install dependencies
 RUN bun install --frozen-lockfile
 
-# Copy source code (excluding public directory)
+# Copy source code and additional files
 COPY src/ ./src/
 COPY index.ts server.ts package.json tsconfig.json ./
+COPY instrument.js ./
+COPY gcs-key.json* ./
 
 # Create directories for persistent data storage
 RUN mkdir -p data/uploads data/output
 
-# Expose port
-EXPOSE 3000
-
-# Set environment variables
+# Set environment variables (Railway will provide PORT dynamically)
 ENV NODE_ENV=production
-ENV PORT=3000
 
-# Health check
+# Health check for Railway (use PORT env var with fallback)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3000/health || exit 1
+    CMD curl -f http://localhost:${PORT:-3000}/health || exit 1
 
 # Start the server
 CMD ["bun", "run", "start"]
