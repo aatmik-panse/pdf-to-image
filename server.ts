@@ -69,7 +69,7 @@ app.use((req, res, next) => {
   const requestId = generateRequestId();
   req.requestId = requestId;
 
-  log.info(`🔵 Incoming request`, {
+  log.debug(`🔵 Incoming request`, {
     requestId,
     method: req.method,
     url: req.url,
@@ -233,11 +233,11 @@ app.get("/debug/memory", (req, res) => {
     },
     afterGC: global.gc
       ? {
-          rss: `${Math.round(memUsageAfterGC.rss / 1024 / 1024)}MB`,
-          heapUsed: `${Math.round(memUsageAfterGC.heapUsed / 1024 / 1024)}MB`,
-          heapTotal: `${Math.round(memUsageAfterGC.heapTotal / 1024 / 1024)}MB`,
-          external: `${Math.round(memUsageAfterGC.external / 1024 / 1024)}MB`,
-        }
+        rss: `${Math.round(memUsageAfterGC.rss / 1024 / 1024)}MB`,
+        heapUsed: `${Math.round(memUsageAfterGC.heapUsed / 1024 / 1024)}MB`,
+        heapTotal: `${Math.round(memUsageAfterGC.heapTotal / 1024 / 1024)}MB`,
+        external: `${Math.round(memUsageAfterGC.external / 1024 / 1024)}MB`,
+      }
       : null,
     gcAvailable: !!global.gc,
     timestamp: new Date().toISOString(),
@@ -299,11 +299,11 @@ app.post("/api/convert", upload.single("pdf"), async (req, res) => {
       body: req.body,
       fileInfo: req.file
         ? {
-            originalname: req.file.originalname,
-            mimetype: req.file.mimetype,
-            size: req.file.size,
-            gcsObject: req.file.gcsObject,
-          }
+          originalname: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size,
+          gcsObject: req.file.gcsObject,
+        }
         : null,
     });
 
@@ -386,7 +386,7 @@ app.post("/api/convert", upload.single("pdf"), async (req, res) => {
     //   });
     // }
 
-    log.success(`✅ PDF conversion completed`, { requestId, result });
+    log.debug(`✅ PDF conversion completed`, { requestId, result });
 
     // Get list of generated images
     log.debug(`📋 Reading generated images`, {
@@ -687,8 +687,8 @@ app.use((req, res) => {
     message: isMalformedHealthCheck
       ? "Try /health instead"
       : isMalformedApiCall
-      ? "Try /api/convert instead"
-      : "Route not found",
+        ? "Try /api/convert instead"
+        : "Route not found",
   });
 });
 

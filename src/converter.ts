@@ -187,7 +187,7 @@ export async function convertPdfToImages(
         jpgFiles.push(jpgPath);
         convertedPages.push(pageNumber);
 
-        log.success(`✅ Page ${pageNumber} converted to JPG successfully`);
+        log.debug(`✅ Page ${pageNumber} converted to JPG successfully`);
 
         // 🧹 MEMORY OPTIMIZATION: Force garbage collection between pages for large documents
         if (pngResults.length > 5 && i % 3 === 0 && global.gc) {

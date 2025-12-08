@@ -79,10 +79,7 @@ export async function validatePdfFile(filePath: string): Promise<void> {
     log.success(`✅ PDF file validation completed successfully`, fileInfo);
 
     // Also log the original format for backward compatibility
-    console.log(
-      chalk.green(`✅ PDF file validated: ${path.basename(filePath)}`)
-    );
-    console.log(chalk.gray(`   Size: ${formatFileSize(stats.size)}`));
+
   } catch (error) {
     const validationTime = Date.now() - validationStart;
     log.error(`❌ PDF file validation failed`, {
