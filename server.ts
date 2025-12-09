@@ -21,7 +21,7 @@ import {
   getSignedUrl,
   bucketName,
 } from "./src/storage";
-import { convertPdfToImagesFast } from "./src/converter-fast";
+import { convertPdfToImages as convertPdfToImagesPoppler } from "./src/converter-poppler";
 
 // Enhanced logging utility
 const log = {
@@ -313,16 +313,16 @@ app.post("/api/convert", upload.single("pdf"), async (req, res) => {
     }
 
     const {
-      dpi = "200",
-      quality = "90",
+      dpi = "150",
+      quality = "80",
       pages = "all",
       format = "jpg", // NEW: Support for format selection
       fast = "true", // NEW: Enable fast mode by default
     } = req.body;
 
     const conversionOptions = {
-      dpi: parseInt(dpi),
-      quality: parseInt(quality),
+      dpi: Math.min(parseInt(dpi), 300), // Clamp max DPI to 300 to avoid huge files
+      quality: Math.min(parseInt(quality), 85), // Clamp max quality to 85
       pages,
       format: (format.toLowerCase() === "png" ? "png" : "jpg") as "png" | "jpg",
       maxConcurrency: Math.min(os.cpus().length, 4),
@@ -370,8 +370,8 @@ app.post("/api/convert", upload.single("pdf"), async (req, res) => {
 
     let result;
     // if (fast === "true") {
-    // Use FAST converter for maximum speed
-    result = await convertPdfToImagesFast(tempPdfPath, {
+    // Use Poppler converter for ISO-compliant JPEGs and speed
+    result = await convertPdfToImagesPoppler(tempPdfPath, {
       outputDir,
       ...conversionOptions,
     });

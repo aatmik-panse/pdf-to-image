@@ -132,10 +132,10 @@ For detailed deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md)
    bun run cli --help
    ```
 
-> **Note**: This is now an API-only service. The application uses `pdf2pic` which requires ImageMagick and Ghostscript. For local development on macOS, you may need to install these:
+> **Note**: This is now an API-only service. The application uses `pdftoppm` (from Poppler) for high-performance conversion. For local development on macOS, you may need to install this:
 >
 > ```bash
-> brew install imagemagick ghostscript
+> brew install poppler
 > ```
 >
 > For production deployment, these dependencies are automatically installed in the Docker container.
