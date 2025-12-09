@@ -179,12 +179,12 @@ curl -X POST \
 ## Troubleshooting
 
 ### Common Issues
-
-1. **ImageMagick/Ghostscript errors**:
-
-   - Ensure ImageMagick and Ghostscript are installed
-   - Check Docker container includes these dependencies
-   - Verify system PATH includes ImageMagick binaries
+ 
+ 1. **Poppler errors**:
+ 
+    - Ensure `poppler-utils` (Debian/Ubuntu) or `poppler` (macOS) is installed
+    - Check Docker container includes this dependency
+    - Verify system PATH includes `pdftoppm` binary
 
 2. **File upload failures**:
 

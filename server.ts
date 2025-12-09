@@ -770,23 +770,23 @@ process.on("SIGINT", () => {
 });
 
 // Log system resource usage every 5 minutes in production
-if (process.env.NODE_ENV === "production") {
-  setInterval(() => {
-    const memUsage = process.memoryUsage();
-    const cpuUsage = process.cpuUsage();
+// if (process.env.NODE_ENV === "production") {
+//   setInterval(() => {
+//     const memUsage = process.memoryUsage();
+//     const cpuUsage = process.cpuUsage();
 
-    log.info(`📊 System Resource Usage`, {
-      memory: {
-        rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
-        heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
-        heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
-        external: `${Math.round(memUsage.external / 1024 / 1024)}MB`,
-      },
-      cpu: {
-        user: `${cpuUsage.user}μs`,
-        system: `${cpuUsage.system}μs`,
-      },
-      uptime: `${Math.round(process.uptime())}s`,
-    });
-  }, 5 * 60 * 1000); // 5 minutes
-}
+//     log.info(`📊 System Resource Usage`, {
+//       memory: {
+//         rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
+//         heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
+//         heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
+//         external: `${Math.round(memUsage.external / 1024 / 1024)}MB`,
+//       },
+//       cpu: {
+//         user: `${cpuUsage.user}μs`,
+//         system: `${cpuUsage.system}μs`,
+//       },
+//       uptime: `${Math.round(process.uptime())}s`,
+//     });
+//   }, 5 * 60 * 1000); // 5 minutes
+// }
