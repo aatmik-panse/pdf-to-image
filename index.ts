@@ -1,7 +1,7 @@
 import { program } from "commander";
 import chalk from "chalk";
 import { validatePdfFile } from "./src/utils";
-import { convertPdfToImages } from "./src/converter";
+import { convertPdfToImages } from "./src/converter-poppler";
 
 // Enhanced logging utility for CLI
 const log = {
@@ -35,17 +35,17 @@ const log = {
 
 program
   .name("pdf-to-image")
-  .description("Convert PDF files to JPG images")
-  .version("1.0.0")
+  .description("Convert PDF files to JPG/PNG images using Poppler")
+  .version("2.0.0")
   .addHelpText(
     "after",
     `
 Examples:
-  $ bun start document.pdf                    # Convert all pages
-  $ bun start document.pdf -o ./images       # Specify output directory
-  $ bun start document.pdf -d 600 -q 95      # High quality conversion
-  $ bun start document.pdf -p 1-5            # Convert pages 1-5
-  $ bun start document.pdf -p 1,3,5          # Convert specific pages
+  $ bun run cli document.pdf                    # Convert all pages
+  $ bun run cli document.pdf -o ./images       # Specify output directory
+  $ bun run cli document.pdf -d 600 -q 95      # High quality conversion
+  $ bun run cli document.pdf -p 1-5            # Convert pages 1-5
+  $ bun run cli document.pdf -f png            # Convert to PNG
   
 Page Range Formats:
   all       Convert all pages
@@ -61,6 +61,7 @@ program
   .option("-o, --output <dir>", "Output directory for images", "./output")
   .option("-d, --dpi <number>", "DPI resolution for images", "300")
   .option("-q, --quality <number>", "JPG quality (1-100)", "90")
+  .option("-f, --format <type>", "Output format (jpg, png)", "jpg")
   .option(
     "-p, --pages <range>",
     "Page range to convert (e.g., 1-3 or 1,3,5)",
@@ -96,6 +97,7 @@ program
         dpi: parseInt(options.dpi),
         quality: parseInt(options.quality),
         pages: options.pages,
+        format: options.format as "jpg" | "png",
       });
 
       const conversionTime = Date.now() - conversionStart;
