@@ -50,5 +50,5 @@ bun start sample.pdf -p 1-2
 
 await writeFile("test-document.html", htmlContent);
 console.log(
-  "Test HTML file created. You can convert it to PDF using a browser or online tool."
+    "Test HTML file created. You can convert it to PDF using a browser or online tool."
 );
