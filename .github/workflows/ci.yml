@@ -1,0 +1,122 @@
+name: Advanced DevOps CI/CD
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  workflow_dispatch:
+
+jobs:
+  # ------------------------------------------------------------------
+  # Stage 1: Continuous Integration (CI)
+  # Focus: Code Quality, Security, and Correctness
+  # ------------------------------------------------------------------
+  ci:
+    name: CI - Quality & Security
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 1. Checkout Source Code
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 2. Setup Runtime (Bun)
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      # 3. Install Dependencies
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      # 4. Linting (Enforce Coding Standards)
+      # Why: Prevents technical debt and ensures consistent code style
+      - name: Linting
+        run: bun run lint
+
+      # 5. Unit Tests (Validate Business Logic)
+      # Why: Prevents regressions by verifying logic
+      - name: Unit Tests
+        run: bun test
+
+      # 6. Security: SAST (Static Application Security Testing)
+      # Why: Detects code-level vulnerabilities (e.g., injection flaws)
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+      # 7. Security: SCA (Software Composition Analysis)
+      # Why: Detects vulnerabilities in third-party dependencies (node_modules)
+      - name: Run Trivy Vulnerability Scanner (Filesystem)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '1' # Fail pipeline if severe vulnerabilities found
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
+  # ------------------------------------------------------------------
+  # Stage 2: Continuous Delivery (CD)
+  # Focus: Packaging, Container Security, and Publishing
+  # ------------------------------------------------------------------
+  cd:
+    name: CD - Build & Push
+    needs: [ci] # Only run if CI passes
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 1. Login to DockerHub (Secure Access)
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 2. Build Docker Image (Local Build for Scanning)
+      # Why: We need the image locally to run security scans before pushing
+      - name: Build and Export to Docker
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true # Start with local load, don't push yet
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/pdf-to-image:${{ github.sha }}
+
+      # 3. Container Security Scan
+      # Why: Detects OS-level vulnerabilities in the base image (oven/bun + system deps)
+      - name: Run Trivy Vulnerability Scanner (Image)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/pdf-to-image:${{ github.sha }}
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
+      # 4. Runtime Validation (Smoke Test)
+      # Why: Ensures the container can actually start and isn't crashing on boot
+      - name: Smoke Test
+        run: |
+          docker run -d -p 3000:3000 --name smoke-test ${{ secrets.DOCKERHUB_USERNAME }}/pdf-to-image:${{ github.sha }}
+          sleep 10 # Give it a moment to boot
+          curl -f http://localhost:3000/health || (docker logs smoke-test && exit 1)
+          docker stops smoke-test
+
+      # 5. Push Trusted Image
+      # Only reached if all previous steps passed
+      - name: Build and Push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/pdf-to-image:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/pdf-to-image:${{ github.sha }}
