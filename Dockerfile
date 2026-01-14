@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     ghostscript \
     poppler-utils \
     curl \
+    && apt-get install --only-upgrade -y gpgv "libpam*" \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app directory
