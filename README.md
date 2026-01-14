@@ -197,3 +197,54 @@ This will start the service on port 3000 with all dependencies pre-installed.
 ## License
 
 MIT License
+
+## 🔄 CI/CD Pipeline (DevSecOps)
+
+This project implements a comprehensive **DevSecOps** pipeline using GitHub Actions to ensure code quality, security, and reliability.
+
+### 🏗️ Pipeline Architecture
+
+The pipeline consists of two main jobs: `ci` (Integration & Security) and `cd` (Delivery).
+
+1.  **Code Quality & Testing**
+    *   **Linting**: Enforces code style and best practices using ESLint.
+    *   **Unit Tests**: Validates business logic using `bun test`.
+
+2.  **Security Scans (Shift-Left)**
+    *   **SAST (Static Application Security Testing)**: Uses **CodeQL** to detect vulnerabilities in source code.
+    *   **SCA (Software Composition Analysis)**: Uses **Trivy** to scan dependencies for known CVEs.
+
+3.  **Containerization & Security**
+    *   **Docker Build**: Builds the production-ready container image.
+    *   **Container Scan**: Uses **Trivy** to scan the final Docker image for OS-level and package vulnerabilities.
+    *   **Smoke Test**: Spins up the container and verifies health endpoints before publishing.
+
+### 🏃 Running Locally
+
+You can simulate the entire CI pipeline locally using the provided script. This ensures that your changes will pass GitHub Actions before you push.
+
+**Prerequisites:**
+- Docker installed and running
+- Bun installed
+
+**Run the Local CI Script:**
+```bash
+# Make the script executable (first time only)
+chmod +x scripts/local-ci.sh
+
+# Run the pipeline
+./scripts/local-ci.sh
+```
+
+This script will:
+1. Run Linting & Tests
+2. Build the Docker Image
+3. Run a Trivy Security Scan against the local image
+
+### 🔐 Environment Secrets
+
+For the pipeline to function correctly on GitHub, the following secrets must be configured in the repository settings:
+
+- `DOCKERHUB_USERNAME`: Your Docker Hub username
+- `DOCKERHUB_TOKEN`: Your Docker Hub access token
+
