@@ -26,13 +26,13 @@ echo "✅ Docker build passed!"
 echo "----------------------------------------"
 echo "🛡️ Step 4: Security Scan (Trivy)"
 echo "Pulling Trivy scanner..."
-docker pull aquasecurity/trivy:latest > /dev/null
+docker pull aquasec/trivy:latest > /dev/null
 
 echo "Scanning local image for HIGH/CRITICAL vulnerabilities..."
 # We map the docker socket so Trivy can see the local image we just built
 docker run --rm \
     -v /var/run/docker.sock:/var/run/docker.sock \
-    aquasecurity/trivy:latest image \
+    aquasec/trivy:latest image \
     --severity HIGH,CRITICAL \
     --exit-code 1 \
     --ignore-unfixed \
