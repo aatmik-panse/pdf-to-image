@@ -112,7 +112,7 @@ jobs:
           docker run -d -p 3000:3000 --name smoke-test ${{ secrets.DOCKERHUB_USERNAME }}/pdf-to-image:${{ github.sha }}
           sleep 10 # Give it a moment to boot
           curl -f http://localhost:3000/health || (docker logs smoke-test && exit 1)
-          docker stops smoke-test
+          docker stop smoke-test
 
       # 5. Push Trusted Image
       # Only reached if all previous steps passed

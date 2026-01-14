@@ -24,7 +24,6 @@ RUN bun install --frozen-lockfile
 COPY src/ ./src/
 COPY index.ts server.ts package.json tsconfig.json ./
 COPY instrument.js ./
-COPY gcs-key.json* ./
 
 # Create directories for persistent data storage
 RUN mkdir -p data/uploads data/output
