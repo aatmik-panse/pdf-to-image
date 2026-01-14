@@ -13,6 +13,10 @@ jobs:
   ci:
     name: CI - Quality & Security
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
     
     steps:
       # 1. Checkout Source Code
