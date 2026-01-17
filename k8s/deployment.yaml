@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pdf-to-image
+  labels:
+    app: pdf-to-image
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pdf-to-image
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: pdf-to-image
+    spec:
+      containers:
+        - name: pdf-to-image
+          image: aatmik-panse/pdf-to-image:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: "/app/gcs-key.json"
+            - name: NODE_ENV
+              value: "production"
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "4Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 3
+          volumeMounts:
+            - name: gcs-key-volume
+              mountPath: "/app/gcs-key.json"
+              subPath: "gcs-key.json"
+              readOnly: true
+      volumes:
+        - name: gcs-key-volume
+          secret:
+            secretName: gcs-key
