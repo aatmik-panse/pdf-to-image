@@ -6,10 +6,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  # ------------------------------------------------------------------
-  # Stage 1: Continuous Integration (CI)
-  # Focus: Code Quality, Security, and Correctness
-  # ------------------------------------------------------------------
+  # Part 1: Checking the Code (CI)
+  # Making sure everything works and is safe before we do anything else
   ci:
     name: CI - Quality & Security
     runs-on: ubuntu-latest
@@ -19,32 +17,32 @@ jobs:
       security-events: write
     
     steps:
-      # 1. Checkout Source Code
+      # Get the code from the repo
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2. Setup Runtime (Bun)
+      # Install Bun so we can run our app
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
 
-      # 3. Install Dependencies
+      # Download all the packages we need
       - name: Install Dependencies
         run: bun install --frozen-lockfile
 
-      # 4. Linting (Enforce Coding Standards)
-      # Why: Prevents technical debt and ensures consistent code style
+      # Check for messy code (Linting)
+      # Keeps the code looking clean so it's actually readable
       - name: Linting
         run: bun run lint
 
-      # 5. Unit Tests (Validate Business Logic)
-      # Why: Prevents regressions by verifying logic
+      # Run our tests to make sure I didn't break anything
+      # Better to catch bugs now than later!
       - name: Unit Tests
         run: bun test
 
-      # 6. Security: SAST (Static Application Security Testing)
-      # Why: Detects code-level vulnerabilities (e.g., injection flaws)
+      # Security: Scanning my own code
+      # Making sure I didn't leave any obvious security holes or mistakes
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
@@ -53,8 +51,8 @@ jobs:
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
 
-      # 7. Security: SCA (Software Composition Analysis)
-      # Why: Detects vulnerabilities in third-party dependencies (node_modules)
+      # Security: Scanning the libraries I used
+      # Sometimes the packages we download have bugs or vulnerabilities in them
       - name: Run Trivy Vulnerability Scanner (Filesystem)
         uses: aquasecurity/trivy-action@master
         with:
@@ -65,10 +63,8 @@ jobs:
           ignore-unfixed: true
           severity: 'CRITICAL,HIGH'
 
-  # ------------------------------------------------------------------
-  # Stage 2: Continuous Delivery (CD)
-  # Focus: Packaging, Container Security, and Publishing
-  # ------------------------------------------------------------------
+  # Part 2: Shipping the Code (CD)
+  # Now that the code is clean, let's turn it into a Docker image
   cd:
     name: CD - Build & Push
     needs: [ci] # Only run if CI passes
@@ -78,15 +74,15 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 1. Login to DockerHub (Secure Access)
+      # Log into Docker Hub so we can upload our final image later
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 2. Build Docker Image (Local Build for Scanning)
-      # Why: We need the image locally to run security scans before pushing
+      # Build the Docker image locally first
+      # We need to build it here so we can check it for bugs before we push it
       - name: Build and Export to Docker
         uses: docker/build-push-action@v5
         with:
@@ -94,8 +90,8 @@ jobs:
           load: true # Start with local load, don't push yet
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/pdf-to-image:${{ github.sha }}
 
-      # 3. Container Security Scan
-      # Why: Detects OS-level vulnerabilities in the base image (oven/bun + system deps)
+      # One last security check on the final image
+      # Making sure the whole container environment is safe for production
       - name: Run Trivy Vulnerability Scanner (Image)
         uses: aquasecurity/trivy-action@master
         with:
@@ -105,8 +101,8 @@ jobs:
           ignore-unfixed: true
           severity: 'CRITICAL,HIGH'
 
-      # 4. Runtime Validation (Smoke Test)
-      # Why: Ensures the container can actually start and isn't crashing on boot
+      # Quick test to see if it actually turns on (Smoke Test)
+      # Just making sure it doesn't crash right when it starts up
       - name: Smoke Test
         run: |
           docker run -d -p 3000:3000 --name smoke-test ${{ secrets.DOCKERHUB_USERNAME }}/pdf-to-image:${{ github.sha }}
@@ -114,8 +110,8 @@ jobs:
           curl -f http://localhost:3000/health || (docker logs smoke-test && exit 1)
           docker stop smoke-test
 
-      # 5. Push Trusted Image
-      # Only reached if all previous steps passed
+      # Everything looks good! Sending the final version to Docker Hub
+      # We only get here if all the checks above passed successfully
       - name: Build and Push
         uses: docker/build-push-action@v5
         with:
