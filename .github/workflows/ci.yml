@@ -2,7 +2,7 @@ name: Advanced DevOps CI/CD
 
 on:
   push:
-    branches: [ "master", "main" ]
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
