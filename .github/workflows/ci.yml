@@ -120,3 +120,41 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/pdf-to-image:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/pdf-to-image:${{ github.sha }}
+
+  # Part 3: Kubernetes Integration Test (Kind)
+  # This is the "simpler" way to test K8s without needing a real cloud cluster
+  k8s-test:
+    name: K8s Test (Kind)
+    needs: [cd]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Create Kind Cluster
+        uses: helm/kind-action@v1.9.0
+
+      - name: Load Image to Kind
+        run: |
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/pdf-to-image:${{ github.sha }}
+          kind load docker-image ${{ secrets.DOCKERHUB_USERNAME }}/pdf-to-image:${{ github.sha }} --name chart-testing
+
+      - name: Deploy to Kind
+        run: |
+          # Create dummy secret for testing
+          kubectl create secret generic gcs-key --from-literal=gcs-key.json='{"dummy":"data"}'
+          
+          # Update image in deployment.yaml
+          sed -i "s|image:.*|image: ${{ secrets.DOCKERHUB_USERNAME }}/pdf-to-image:${{ github.sha }}|g" k8s/deployment.yaml
+          
+          # Apply manifests
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+          
+          # Wait for deployment to be ready
+          kubectl rollout status deployment/pdf-to-image --timeout=90s
+
+      - name: Check K8s Resources
+        run: |
+          kubectl get pods
+          kubectl get services
